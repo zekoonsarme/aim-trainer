@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valorant Aim Trainer</title>
+  <style>
+    :root {
+      --bg: #0d1017;
+      --panel: rgba(18, 23, 34, 0.86);
+      --panel-strong: rgba(12, 15, 24, 0.94);
+      --text: #f5f7fb;
+      --muted: #a9b2c5;
+      --line: rgba(255, 255, 255, 0.1);
+      --red: #ff4655;
+      --cyan: #67e8f9;
+      --green: #6ee7a8;
+      --gold: #ffd166;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    .game-shell {
+      position: relative;
+      width: min(1180px, 100vw);
+      height: min(720px, 100vh);
+      min-height: 520px;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        radial-gradient(circle at 50% 42%, rgba(255, 70, 85, 0.12), transparent 38%),
+        #0b0e15;
+      background-size: 52px 52px, 52px 52px, cover, cover;
+      border: 1px solid var(--line);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    .hud {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .stat-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .stat {
+      min-width: 108px;
+      padding: 9px 12px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+      backdrop-filter: blur(10px);
+    }
+
+    .label {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .value {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .brand {
+      padding: 10px 13px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+      text-align: right;
+      backdrop-filter: blur(10px);
+    }
+
+    .brand span {
+      color: var(--red);
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(5, 8, 14, 0.72);
+      backdrop-filter: blur(8px);
+    }
+
+    .overlay[hidden] {
+      display: none;
+    }
+
+    .dialog {
+      width: min(440px, 100%);
+      padding: 24px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.44);
+      text-align: center;
+    }
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1,
+    h2 {
+      font-size: clamp(28px, 5vw, 42px);
+      line-height: 1.04;
+      letter-spacing: 0;
+    }
+
+    .accent {
+      color: var(--red);
+    }
+
+    .sub {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .results {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin: 20px 0;
+    }
+
+    .result {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    button {
+      width: 100%;
+      min-height: 46px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--red);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease;
+    }
+
+    button:hover {
+      filter: brightness(1.08);
+    }
+
+    button:active {
+      transform: translateY(1px) scale(0.99);
+    }
+
+    @media (max-width: 720px) {
+      .game-shell {
+        width: 100vw;
+        height: 100vh;
+        min-height: 100vh;
+        border: 0;
+      }
+
+      .hud {
+        align-items: flex-start;
+      }
+
+      .brand {
+        display: none;
+      }
+
+      .stat {
+        min-width: 96px;
+      }
+
+      .value {
+        font-size: 19px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="game-shell" id="gameShell">
+    <canvas id="gameCanvas" aria-label="Valorant aim trainer oyun alanı"></canvas>
+
+    <section class="hud" aria-live="polite">
+      <div class="stat-row">
+        <div class="stat">
+          <span class="label">Time</span>
+          <span class="value" id="timeValue">30.0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Accuracy</span>
+          <span class="value" id="accuracyValue">100%</span>
+        </div>
+        <div class="stat">
+          <span class="label">Hits</span>
+          <span class="value" id="hitsValue">0</span>
+        </div>
+      </div>
+      <div class="brand">HEAD<span>SHOT</span> LAB</div>
+    </section>
+
+    <section class="overlay" id="startOverlay">
+      <div class="dialog">
+        <h1>HEAD<span class="accent">SHOT</span> LAB</h1>
+        <p class="sub">30 saniyelik refleks testi. Her hedef standart kafa boyutunda: 50px.</p>
+        <button id="startButton" type="button">BAŞLA</button>
+      </div>
+    </section>
+
+    <section class="overlay" id="endOverlay" hidden>
+      <div class="dialog">
+        <h2>Skor</h2>
+        <div class="results">
+          <div class="result">
+            <span class="label">Hits</span>
+            <span class="value" id="finalHits">0</span>
+          </div>
+          <div class="result">
+            <span class="label">Shots</span>
+            <span class="value" id="finalShots">0</span>
+          </div>
+          <div class="result">
+            <span class="label">Accuracy</span>
+            <span class="value" id="finalAccuracy">0%</span>
+          </div>
+          <div class="result">
+            <span class="label">Score</span>
+            <span class="value" id="finalScore">0</span>
+          </div>
+        </div>
+        <button id="restartButton" type="button">TEKRAR DENE</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const GAME_DURATION = 30;
+      const TARGET_DIAMETER = 50;
+      const TARGET_RADIUS = TARGET_DIAMETER / 2;
+      const TARGET_COUNT = 1;
+
+      const shell = document.getElementById('gameShell');
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d', { alpha: false });
+
+      const timeValue = document.getElementById('timeValue');
+      const accuracyValue = document.getElementById('accuracyValue');
+      const hitsValue = document.getElementById('hitsValue');
+      const startOverlay = document.getElementById('startOverlay');
+      const endOverlay = document.getElementById('endOverlay');
+      const startButton = document.getElementById('startButton');
+      const restartButton = document.getElementById('restartButton');
+      const finalHits = document.getElementById('finalHits');
+      const finalShots = document.getElementById('finalShots');
+      const finalAccuracy = document.getElementById('finalAccuracy');
+      const finalScore = document.getElementById('finalScore');
+
+      let dpr = 1;
+      let width = 0;
+      let height = 0;
+      let targets = [];
+      let animationId = 0;
+      let lastFrameTime = 0;
+      let elapsed = 0;
+      let hits = 0;
+      let shots = 0;
+      let running = false;
+      let shotEffects = [];
+
+      class Target {
+        constructor(boundsWidth, boundsHeight) {
+          this.radius = TARGET_RADIUS;
+          this.x = randomBetween(this.radius + 20, boundsWidth - this.radius - 20);
+          this.y = randomBetween(this.radius + 64, boundsHeight - this.radius - 20);
+          this.spawnTime = performance.now();
+        }
+
+        contains(pointX, pointY) {
+          return Math.hypot(pointX - this.x, pointY - this.y) <= this.radius;
+        }
+
+        draw(context, now) {
+          const pulse = Math.sin((now - this.spawnTime) / 90) * 1.6;
+          const ringRadius = this.radius + pulse;
+
+          context.save();
+          context.translate(this.x, this.y);
+
+          context.beginPath();
+          context.arc(0, 0, ringRadius + 8, 0, Math.PI * 2);
+          context.fillStyle = 'rgba(255, 70, 85, 0.15)';
+          context.fill();
+
+          context.beginPath();
+          context.arc(0, 0, ringRadius, 0, Math.PI * 2);
+          context.fillStyle = '#ff4655';
+          context.fill();
+
+          context.beginPath();
+          context.arc(0, 0, Math.max(7, this.radius * 0.34), 0, Math.PI * 2);
+          context.fillStyle = '#111620';
+          context.fill();
+
+          context.beginPath();
+          context.moveTo(-this.radius - 8, 0);
+          context.lineTo(this.radius + 8, 0);
+          context.moveTo(0, -this.radius - 8);
+          context.lineTo(0, this.radius + 8);
+          context.strokeStyle = 'rgba(255, 255, 255, 0.74)';
+          context.lineWidth = 2;
+          context.stroke();
+
+          context.restore();
+        }
+      }
+
+      function randomBetween(min, max) {
+        if (max <= min) {
+          return min;
+        }
+
+        return Math.random() * (max - min) + min;
+      }
+
+      function resizeCanvas() {
+        const rect = shell.getBoundingClientRect();
+        dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+        width = Math.floor(rect.width);
+        height = Math.floor(rect.height);
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        keepTargetsInsideBounds();
+      }
+
+      function keepTargetsInsideBounds() {
+        for (const target of targets) {
+          target.x = Math.min(Math.max(target.x, target.radius), width - target.radius);
+          target.y = Math.min(Math.max(target.y, target.radius + 58), height - target.radius);
+        }
+      }
+
+      function spawnTarget() {
+        targets.push(new Target(width, height));
+      }
+
+      function resetGame() {
+        targets.splice(0, targets.length);
+        shotEffects.splice(0, shotEffects.length);
+        elapsed = 0;
+        hits = 0;
+        shots = 0;
+        lastFrameTime = performance.now();
+
+        for (let i = 0; i < TARGET_COUNT; i += 1) {
+          spawnTarget();
+        }
+
+        updateHud();
+      }
+
+      function startGame() {
+        resizeCanvas();
+        resetGame();
+        running = true;
+        startOverlay.hidden = true;
+        endOverlay.hidden = true;
+        cancelAnimationFrame(animationId);
+        animationId = requestAnimationFrame(gameLoop);
+      }
+
+      function endGame() {
+        running = false;
+        cancelAnimationFrame(animationId);
+        targets.splice(0, targets.length);
+        shotEffects.splice(0, shotEffects.length);
+        render(performance.now());
+
+        const accuracy = getAccuracy();
+        const score = Math.round(hits * 100 + accuracy * 6);
+
+        finalHits.textContent = hits.toString();
+        finalShots.textContent = shots.toString();
+        finalAccuracy.textContent = `${accuracy}%`;
+        finalScore.textContent = score.toString();
+        endOverlay.hidden = false;
+      }
+
+      function gameLoop(now) {
+        const delta = Math.min(0.05, (now - lastFrameTime) / 1000);
+        lastFrameTime = now;
+        elapsed += delta;
+
+        if (elapsed >= GAME_DURATION) {
+          elapsed = GAME_DURATION;
+          updateHud();
+          endGame();
+          return;
+        }
+
+        updateHud();
+        render(now);
+        animationId = requestAnimationFrame(gameLoop);
+      }
+
+      function render(now) {
+        ctx.clearRect(0, 0, width, height);
+        drawArena();
+
+        for (const target of targets) {
+          target.draw(ctx, now);
+        }
+
+        drawShotEffects(now);
+      }
+
+      function drawArena() {
+        ctx.fillStyle = '#0b0e15';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.045)';
+        ctx.lineWidth = 1;
+
+        for (let x = 0; x <= width; x += 52) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+
+        for (let y = 0; y <= height; y += 52) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(width / 2 - 9, height / 2);
+        ctx.lineTo(width / 2 + 9, height / 2);
+        ctx.moveTo(width / 2, height / 2 - 9);
+        ctx.lineTo(width / 2, height / 2 + 9);
+        ctx.strokeStyle = 'rgba(103, 232, 249, 0.85)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      function handleShot(event) {
+        if (!running) {
+          return;
+        }
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        let didHit = false;
+
+        shots += 1;
+
+        for (let i = targets.length - 1; i >= 0; i -= 1) {
+          if (targets[i].contains(mouseX, mouseY)) {
+            targets.splice(i, 1);
+            hits += 1;
+            didHit = true;
+            createShotEffect(mouseX, mouseY, true);
+            spawnTarget();
+            break;
+          }
+        }
+
+        if (!didHit) {
+          createShotEffect(mouseX, mouseY, false);
+        }
+
+        updateHud();
+      }
+
+      function createShotEffect(x, y, isHit) {
+        shotEffects.push({
+          x,
+          y,
+          isHit,
+          start: performance.now(),
+          duration: isHit ? 220 : 150
+        });
+      }
+
+      function drawShotEffects(now) {
+        for (let i = shotEffects.length - 1; i >= 0; i -= 1) {
+          const effect = shotEffects[i];
+          const progress = (now - effect.start) / effect.duration;
+
+          if (progress >= 1) {
+            shotEffects.splice(i, 1);
+            continue;
+          }
+
+          ctx.save();
+          ctx.globalAlpha = 1 - progress;
+
+          if (effect.isHit) {
+            ctx.beginPath();
+            ctx.arc(effect.x, effect.y, 12 + progress * 30, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ffd166';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          } else {
+            const size = 7 + progress * 8;
+            ctx.beginPath();
+            ctx.moveTo(effect.x - size, effect.y - size);
+            ctx.lineTo(effect.x + size, effect.y + size);
+            ctx.moveTo(effect.x + size, effect.y - size);
+            ctx.lineTo(effect.x - size, effect.y + size);
+            ctx.strokeStyle = 'rgba(245, 247, 251, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+
+          ctx.restore();
+        }
+      }
+
+      function getAccuracy() {
+        return shots === 0 ? 100 : Math.round((hits / shots) * 100);
+      }
+
+      function updateHud() {
+        const remaining = Math.max(0, GAME_DURATION - elapsed);
+        timeValue.textContent = remaining.toFixed(1);
+        accuracyValue.textContent = `${getAccuracy()}%`;
+        hitsValue.textContent = hits.toString();
+      }
+
+      canvas.addEventListener('pointerdown', handleShot);
+      startButton.addEventListener('click', startGame);
+      restartButton.addEventListener('click', startGame);
+      window.addEventListener('resize', resizeCanvas);
+
+      resizeCanvas();
+      render(performance.now());
+    })();
+  </script>
+</body>
+</html>
